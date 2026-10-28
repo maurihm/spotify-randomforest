@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spotify Popularity Predictor | Random Forest AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --spotify-green: #1DB954;
+      --spotify-green-hover: #1ed760;
+      --spotify-black: #121212;
+      --spotify-card: #181818;
+      --spotify-card-elevated: #242424;
+      --spotify-border: #2e2e2e;
+      --text-primary: #FFFFFF;
+      --text-secondary: #B3B3B3;
+      --text-muted: #727272;
+      --accent-glow: rgba(29, 185, 84, 0.25);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--spotify-black);
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* Background glow effect */
+    .bg-gradient {
+      position: fixed;
+      top: -150px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 700px;
+      height: 400px;
+      background: radial-gradient(circle, var(--accent-glow) 0%, rgba(18, 18, 18, 0) 70%);
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    header {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 40px;
+      border-bottom: 1px solid var(--spotify-border);
+      backdrop-filter: blur(12px);
+      background: rgba(18, 18, 18, 0.85);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .logo-badge {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #1DB954, #14833b);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 16px var(--accent-glow);
+    }
+
+    .logo-badge svg {
+      width: 26px;
+      height: 26px;
+      fill: #000;
+    }
+
+    .brand-text h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-text span {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      font-weight: 400;
+    }
+
+    .header-links {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn-link {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.875rem;
+      font-weight: 500;
+      padding: 8px 16px;
+      border-radius: 20px;
+      border: 1px solid var(--spotify-border);
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-link:hover {
+      color: var(--text-primary);
+      border-color: var(--text-secondary);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .badge-live {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(29, 185, 84, 0.15);
+      color: var(--spotify-green);
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(29, 185, 84, 0.3);
+    }
+
+    .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--spotify-green);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    main {
+      position: relative;
+      z-index: 10;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 32px 24px 60px;
+      width: 100%;
+      flex: 1;
+    }
+
+    /* Presets bar */
+    .presets-container {
+      margin-bottom: 28px;
+    }
+
+    .presets-label {
+      font-size: 0.825rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
+    .presets-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .preset-btn {
+      background: var(--spotify-card);
+      border: 1px solid var(--spotify-border);
+      color: var(--text-secondary);
+      padding: 10px 18px;
+      border-radius: 24px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .preset-btn:hover {
+      background: var(--spotify-card-elevated);
+      color: var(--text-primary);
+      border-color: rgba(255, 255, 255, 0.2);
+      transform: translateY(-1px);
+    }
+
+    .preset-btn.active {
+      background: rgba(29, 185, 84, 0.12);
+      border-color: var(--spotify-green);
+      color: var(--spotify-green);
+    }
+
+    /* Layout */
+    .dashboard-layout {
+      display: grid;
+      grid-template-columns: 1.6fr 1fr;
+      gap: 28px;
+    }
+
+    @media (max-width: 960px) {
+      .dashboard-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: var(--spotify-card);
+      border: 1px solid var(--spotify-border);
+      border-radius: 16px;
+      padding: 24px;
+      transition: border-color 0.2s;
+    }
+
+    .card:hover {
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .card-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Sliders grid */
+    .section-title {
+      font-size: 0.8rem;
+      color: var(--spotify-green);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin: 18px 0 12px;
+      font-weight: 700;
+    }
+
+    .section-title:first-child {
+      margin-top: 0;
+    }
+
+    .inputs-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px 20px;
+    }
+
+    @media (max-width: 600px) {
+      .inputs-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .control-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .control-label {
+      font-size: 0.825rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .control-value {
+      font-size: 0.85rem;
+      color: var(--text-primary);
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: #333333;
+      outline: none;
+      transition: background 0.2s;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--text-primary);
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+      transition: all 0.15s ease;
+    }
+
+    input[type="range"]:hover::-webkit-slider-thumb {
+      background: var(--spotify-green);
+      transform: scale(1.15);
+    }
+
+    input[type="number"], select {
+      background: #222222;
+      border: 1px solid var(--spotify-border);
+      color: var(--text-primary);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      outline: none;
+      font-family: 'JetBrains Mono', monospace;
+      transition: border-color 0.2s;
+      width: 100%;
+    }
+
+    input[type="number"]:focus, select:focus {
+      border-color: var(--spotify-green);
+    }
+
+    /* Right column: Results & cURL */
+    .right-column {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .score-card {
+      background: linear-gradient(145deg, #181818 0%, #1e1e1e 100%);
+      border: 1px solid var(--spotify-border);
+      border-radius: 16px;
+      padding: 28px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .score-card::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, var(--accent-glow) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    .score-circle {
+      width: 130px;
+      height: 130px;
+      border-radius: 50%;
+      margin: 0 auto 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #121212;
+      border: 4px solid var(--spotify-green);
+      box-shadow: 0 0 25px var(--accent-glow);
+      transition: all 0.4s ease;
+    }
+
+    .score-number {
+      font-size: 2.75rem;
+      font-weight: 800;
+      color: var(--text-primary);
+      line-height: 1;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .score-max {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    .score-label {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+
+    .score-subtitle {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-bottom: 20px;
+    }
+
+    .btn-predict {
+      background: var(--spotify-green);
+      color: #000;
+      border: none;
+      padding: 14px 28px;
+      border-radius: 30px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 18px rgba(29, 185, 84, 0.3);
+    }
+
+    .btn-predict:hover {
+      background: var(--spotify-green-hover);
+      transform: scale(1.02);
+      box-shadow: 0 6px 24px rgba(29, 185, 84, 0.45);
+    }
+
+    .btn-predict:active {
+      transform: scale(0.99);
+    }
+
+    /* cURL box */
+    .curl-card {
+      background: var(--spotify-card);
+      border: 1px solid var(--spotify-border);
+      border-radius: 16px;
+      padding: 20px;
+    }
+
+    .curl-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .curl-title {
+      font-size: 0.875rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-copy {
+      background: var(--spotify-card-elevated);
+      border: 1px solid var(--spotify-border);
+      color: var(--text-secondary);
+      font-size: 0.775rem;
+      padding: 6px 12px;
+      border-radius: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .btn-copy:hover {
+      color: var(--text-primary);
+      border-color: var(--text-secondary);
+      background: #2e2e2e;
+    }
+
+    .btn-copy.copied {
+      background: rgba(29, 185, 84, 0.2);
+      color: var(--spotify-green);
+      border-color: var(--spotify-green);
+    }
+
+    .curl-box {
+      background: #0d0d0d;
+      border: 1px solid #222222;
+      border-radius: 10px;
+      padding: 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: #9cdcfe;
+      line-height: 1.5;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 180px;
+      user-select: all;
+    }
+
+    .curl-box .cmd { color: #569cd6; font-weight: 600; }
+    .curl-box .flag { color: #dcdcaa; }
+    .curl-box .url { color: #ce9178; }
+    .curl-box .json { color: #4ec9b0; }
+
+    footer {
+      border-top: 1px solid var(--spotify-border);
+      padding: 20px 40px;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      position: relative;
+      z-index: 10;
+    }
+
+    footer a {
+      color: var(--text-secondary);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      color: var(--spotify-green);
+    }
+
+    /* Loader */
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(0,0,0,0.2);
+      border-top-color: #000;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      display: none;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-gradient"></div>
+
+  <header>
+    <div class="brand">
+      <div class="logo-badge">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm4.586 14.424c-.18.295-.563.387-.857.208-2.35-1.436-5.308-1.76-8.792-.963-.334.077-.665-.133-.742-.467-.077-.335.133-.666.468-.743 3.808-.871 7.08-.507 9.715 1.107.294.18.387.563.208.858zm1.224-2.724c-.226.368-.71.485-1.078.26-2.69-1.653-6.79-2.133-9.972-1.168-.413.125-.852-.109-.977-.522-.125-.413.109-.852.522-.977 3.633-1.102 8.147-.568 11.246 1.33.368.225.485.709.259 1.077zm.105-2.835C14.692 8.95 9.375 8.775 6.297 9.71c-.494.15-1.018-.13-1.168-.624-.15-.494.13-1.018.624-1.168 3.532-1.072 9.404-.866 13.115 1.338.444.263.59.837.327 1.28-.263.444-.838.59-1.28.327z"/></svg>
+      </div>
+      <div class="brand-text">
+        <h1>Spotify Popularity AI</h1>
+        <span>Modelo Random Forest Regressor • FastAPI</span>
+      </div>
+    </div>
+    <div class="header-links">
+      <div class="badge-live">
+        <div class="badge-dot"></div> API Activa
+      </div>
+      <a href="/docs" target="_blank" class="btn-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+        Swagger Docs
+      </a>
+    </div>
+  </header>
+
+  <main>
+    <!-- Presets -->
+    <div class="presets-container">
+      <div class="presets-label">⚡ Cargar Ejemplos Rápidos</div>
+      <div class="presets-grid">
+        <button class="preset-btn active" onclick="loadPreset('hit')">🔥 Hit Pop / Urbano</button>
+        <button class="preset-btn" onclick="loadPreset('ballad')">☕ Balada Acústica</button>
+        <button class="preset-btn" onclick="loadPreset('rock')">🎸 Rock Enérgico</button>
+        <button class="preset-btn" onclick="loadPreset('electronic')">⚡ Club / Electrónica</button>
+        <button class="preset-btn" onclick="loadPreset('default')">🔄 Valores Originales</button>
+      </div>
+    </div>
+
+    <div class="dashboard-layout">
+      <!-- Left Column: Controls -->
+      <div class="card">
+        <div class="card-title">
+          <span>Ajustar Características Musicales</span>
+          <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: normal;">13 Features</span>
+        </div>
+
+        <div class="section-title">Ritmo y Percepción</div>
+        <div class="inputs-grid">
+          <div class="control-group">
+            <div class="control-header">
+              <span class="control-label">Bailabilidad (danceability)</span>
+              <span class="control-value" id="val_danceability">0.68</span>
+            </div>
+            <input type="range" id="danceability" min="0" max="1" step="0.01" value="0.676" oninput="updateUI()">
+          </div>
+
+          <div class="control-group">
+            <div class="control-header">
+              <span class="control-label">Energía (energy)</span>
+              <span class="control-value" id="val_energy">0.46</span>
+            </div>
+            <input type="range" id="energy" min="0" max="1" step="0.01" value="0.461" oninput="updateUI()">
+          </div>
+
+          <div class="control-group">
+            <div class="control-header">
+              <span class="control-label">Volumen (loudness, dB)</span>
+              <span class="control-value" id="val_loudness">-6.7 dB</span>
+            </div>
+            <input type="range" id="loudness" min="-40" max="0" step="0.1" value="-6.746" oninput="updateUI()">
+          </div>
+
+          <div class="control-group">
+            <div class="control-header">
+              <span class="control-label">Positividad (valence)</span>
+              <span class="control-value" id="val_valence">0.72</span>
+            </div>
+            <input type="range" id="valence" min="0" max="1" step="0.01" value="0.715" oninput="updateUI()">
+          </div>
+
+          <div class="control-group">
+            <div class="control-header">
+              <span class="control-label">Tempo (BPM)</span>
+              <span class="control-value" id="val_tempo">88 BPM</span>
+            </div>
+            <input type="range" id="tempo" min="50" max="220" step="1" value="87.917" oninput="updateUI()">
+          </div>
+
+          <div class="control-group">
+            <div class="control-header">
+              <span class="control-label">Hablado (speechiness)</span>
+              <span class="control-value" id="val_speechiness">0.14</span>
+            </div>
+            <input type="range" id="speechiness" min="0" max="1" step="0.01" value="0.143" oninput="updateUI()">
+          </div>
+        </div>
+
+        <div class="section-title">Composición Acústica</div>
+        <div class="inputs-grid">
+          <div class="control-group">
+            <div class="control-header">
+              <span class="control-label">Acústica (acousticness)</span>
+              <span class="control-value" id="val_acousticness">0.03</span>
+            </div>
+            <input type="range" id="acousticness" min="0" max="1" step="0.01" value="0.0322" oninput="updateUI()">
+          </div>
+
+          <div class="control-group">
+            <div class="control-header">
+              <span class="control-label">Instrumental (instrumentalness)</span>
+              <span class="control-value" id="val_instrumentalness">0.00</span>
+            </div>
+            <input type="range" id="instrumentalness" min="0" max="1" step="0.01" value="0.000001" oninput="updateUI()">
+          </div>
+
+          <div class="control-group">
+            <div class="control-header">
+              <span class="control-label">En Vivo (liveness)</span>
+              <span class="control-value" id="val_liveness">0.36</span>
+            </div>
+            <input type="range" id="liveness" min="0" max="1" step="0.01" value="0.358" oninput="updateUI()">
+          </div>
+
+          <div class="control-group">
+            <div class="control-header">
+              <span class="control-label">Duración (milisegundos)</span>
+            </div>
+            <input type="number" id="duration_ms" value="230666" step="1000" min="30000" max="900000" oninput="updateUI()">
+          </div>
+        </div>
+
+        <div class="section-title">Estructura Armónica</div>
+        <div class="inputs-grid">
+          <div class="control-group">
+            <div class="control-header">
+              <span class="control-label">Tonalidad (key)</span>
+            </div>
+            <select id="key" onchange="updateUI()">
+              <option value="0">C (0)</option>
+              <option value="1" selected>C# / Db (1)</option>
+              <option value="2">D (2)</option>
+              <option value="3">D# / Eb (3)</option>
+              <option value="4">E (4)</option>
+              <option value="5">F (5)</option>
+              <option value="6">F# / Gb (6)</option>
+              <option value="7">G (7)</option>
+              <option value="8">G# / Ab (8)</option>
+              <option value="9">A (9)</option>
+              <option value="10">A# / Bb (10)</option>
+              <option value="11">B (11)</option>
+            </select>
+          </div>
+
+          <div class="control-group">
+            <div class="control-header">
+              <span class="control-label">Modo Musical (mode)</span>
+            </div>
+            <select id="mode" onchange="updateUI()">
+              <option value="0" selected>Menor (0)</option>
+              <option value="1">Mayor (1)</option>
+            </select>
+          </div>
+
+          <div class="control-group">
+            <div class="control-header">
+              <span class="control-label">Compás (time_signature)</span>
+            </div>
+            <select id="time_signature" onchange="updateUI()">
+              <option value="3">3/4</option>
+              <option value="4" selected>4/4 (Estándar)</option>
+              <option value="5">5/4</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Prediction Score & Live cURL -->
+      <div class="right-column">
+        <!-- Score Box -->
+        <div class="score-card">
+          <div class="score-circle" id="score_circle">
+            <div class="score-number" id="score_display">--</div>
+            <div class="score-max">/ 100</div>
+          </div>
+          <div class="score-label" id="score_title">Popularidad Estimada</div>
+          <div class="score-subtitle" id="score_status">Haz clic en el botón para calcular</div>
+          <button class="btn-predict" id="predict_btn" onclick="predictPopularity()">
+            <div class="spinner" id="spinner"></div>
+            <span id="btn_text">🎵 Calcular Popularidad</span>
+          </button>
+        </div>
+
+        <!-- Live cURL Box -->
+        <div class="curl-card">
+          <div class="curl-header">
+            <div class="curl-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+              Comando cURL en Tiempo Real
+            </div>
+            <button class="btn-copy" id="copy_btn" onclick="copyCurl()">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              <span id="copy_text">Copiar</span>
+            </button>
+          </div>
+          <div class="curl-box" id="curl_output"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    Desplegado con <strong>Docker</strong> y <strong>Render</strong> • <a href="/docs">Documentación OpenAPI /docs</a>
+  </footer>
+
+  <script>
+    const presets = {
+      hit: {
+        duration_ms: 195000,
+        danceability: 0.85,
+        energy: 0.82,
+        key: 5,
+        loudness: -4.5,
+        mode: 1,
+        speechiness: 0.08,
+        acousticness: 0.04,
+        instrumentalness: 0.0,
+        liveness: 0.12,
+        valence: 0.82,
+        tempo: 122,
+        time_signature: 4
+      },
+      ballad: {
+        duration_ms: 220000,
+        danceability: 0.38,
+        energy: 0.25,
+        key: 2,
+        loudness: -13.5,
+        mode: 0,
+        speechiness: 0.03,
+        acousticness: 0.88,
+        instrumentalness: 0.005,
+        liveness: 0.10,
+        valence: 0.28,
+        tempo: 74,
+        time_signature: 4
+      },
+      rock: {
+        duration_ms: 245000,
+        danceability: 0.52,
+        energy: 0.89,
+        key: 9,
+        loudness: -5.1,
+        mode: 1,
+        speechiness: 0.06,
+        acousticness: 0.02,
+        instrumentalness: 0.08,
+        liveness: 0.22,
+        valence: 0.61,
+        tempo: 138,
+        time_signature: 4
+      },
+      electronic: {
+        duration_ms: 210000,
+        danceability: 0.79,
+        energy: 0.94,
+        key: 7,
+        loudness: -3.8,
+        mode: 0,
+        speechiness: 0.07,
+        acousticness: 0.01,
+        instrumentalness: 0.72,
+        liveness: 0.31,
+        valence: 0.54,
+        tempo: 128,
+        time_signature: 4
+      },
+      default: {
+        duration_ms: 230666,
+        danceability: 0.676,
+        energy: 0.461,
+        key: 1,
+        loudness: -6.746,
+        mode: 0,
+        speechiness: 0.143,
+        acousticness: 0.0322,
+        instrumentalness: 0.000001,
+        liveness: 0.358,
+        valence: 0.715,
+        tempo: 87.917,
+        time_signature: 4
+      }
+    };
+
+    function getValues() {
+      return {
+        duration_ms: parseInt(document.getElementById('duration_ms').value) || 200000,
+        danceability: parseFloat(document.getElementById('danceability').value),
+        energy: parseFloat(document.getElementById('energy').value),
+        key: parseInt(document.getElementById('key').value),
+        loudness: parseFloat(document.getElementById('loudness').value),
+        mode: parseInt(document.getElementById('mode').value),
+        speechiness: parseFloat(document.getElementById('speechiness').value),
+        acousticness: parseFloat(document.getElementById('acousticness').value),
+        instrumentalness: parseFloat(document.getElementById('instrumentalness').value),
+        liveness: parseFloat(document.getElementById('liveness').value),
+        valence: parseFloat(document.getElementById('valence').value),
+        tempo: parseFloat(document.getElementById('tempo').value),
+        time_signature: parseInt(document.getElementById('time_signature').value)
+      };
+    }
+
+    function setValues(data) {
+      document.getElementById('duration_ms').value = data.duration_ms;
+      document.getElementById('danceability').value = data.danceability;
+      document.getElementById('energy').value = data.energy;
+      document.getElementById('key').value = data.key;
+      document.getElementById('loudness').value = data.loudness;
+      document.getElementById('mode').value = data.mode;
+      document.getElementById('speechiness').value = data.speechiness;
+      document.getElementById('acousticness').value = data.acousticness;
+      document.getElementById('instrumentalness').value = data.instrumentalness;
+      document.getElementById('liveness').value = data.liveness;
+      document.getElementById('valence').value = data.valence;
+      document.getElementById('tempo').value = data.tempo;
+      document.getElementById('time_signature').value = data.time_signature;
+      updateUI();
+    }
+
+    function loadPreset(name) {
+      document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('active'));
+      event.target.classList.add('active');
+      if (presets[name]) {
+        setValues(presets[name]);
+        predictPopularity();
+      }
+    }
+
+    function updateUI() {
+      const v = getValues();
+      document.getElementById('val_danceability').textContent = v.danceability.toFixed(2);
+      document.getElementById('val_energy').textContent = v.energy.toFixed(2);
+      document.getElementById('val_loudness').textContent = v.loudness.toFixed(1) + ' dB';
+      document.getElementById('val_valence').textContent = v.valence.toFixed(2);
+      document.getElementById('val_tempo').textContent = Math.round(v.tempo) + ' BPM';
+      document.getElementById('val_speechiness').textContent = v.speechiness.toFixed(2);
+      document.getElementById('val_acousticness').textContent = v.acousticness.toFixed(2);
+      document.getElementById('val_instrumentalness').textContent = v.instrumentalness.toFixed(2);
+      document.getElementById('val_liveness').textContent = v.liveness.toFixed(2);
+
+      generateCurl(v);
+    }
+
+    function generateCurl(data) {
+      const baseUrl = window.location.origin;
+      const endpoint = `${baseUrl}/score`;
+      const jsonStr = JSON.stringify(data);
+      const curlCmd = `curl -X POST "${endpoint}" \\\n  -H "Content-Type: application/json" \\\n  -d '${jsonStr}'`;
+      document.getElementById('curl_output').textContent = curlCmd;
+    }
+
+    async function predictPopularity() {
+      const payload = getValues();
+      const spinner = document.getElementById('spinner');
+      const btnText = document.getElementById('btn_text');
+      const scoreDisplay = document.getElementById('score_display');
+      const scoreStatus = document.getElementById('score_status');
+      const circle = document.getElementById('score_circle');
+
+      spinner.style.display = 'inline-block';
+      btnText.textContent = 'Calculando...';
+
+      try {
+        const response = await fetch('/score', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          throw new Error('Error ' + response.status);
+        }
+
+        const data = await response.json();
+        const score = Math.round(data.score);
+        scoreDisplay.textContent = score;
+
+        if (score >= 65) {
+          scoreStatus.textContent = '🔥 Alto Potencial de Éxito / Hit';
+          circle.style.borderColor = '#1DB954';
+          circle.style.boxShadow = '0 0 30px rgba(29, 185, 84, 0.4)';
+        } else if (score >= 40) {
+          scoreStatus.textContent = '🎵 Popularidad Media / Éxito Estable';
+          circle.style.borderColor = '#1e90ff';
+          circle.style.boxShadow = '0 0 30px rgba(30, 144, 255, 0.4)';
+        } else {
+          scoreStatus.textContent = '🎧 Nicho / Pista Indie o Subgénero';
+          circle.style.borderColor = '#ffa500';
+          circle.style.boxShadow = '0 0 30px rgba(255, 165, 0, 0.4)';
+        }
+      } catch (err) {
+        scoreDisplay.textContent = 'ERR';
+        scoreStatus.textContent = 'Error al consultar la API: ' + err.message;
+      } finally {
+        spinner.style.display = 'none';
+        btnText.textContent = '🎵 Calcular Popularidad';
+      }
+    }
+
+    function copyCurl() {
+      const curlText = document.getElementById('curl_output').textContent;
+      navigator.clipboard.writeText(curlText).then(() => {
+        const copyBtn = document.getElementById('copy_btn');
+        const copyText = document.getElementById('copy_text');
+        copyBtn.classList.add('copied');
+        copyText.textContent = '¡Copiado!';
+        setTimeout(() => {
+          copyBtn.classList.remove('copied');
+          copyText.textContent = 'Copiar';
+        }, 2000);
+      });
+    }
+
+    // Inicializar UI al cargar la página
+    window.addEventListener('DOMContentLoaded', () => {
+      updateUI();
+      predictPopularity();
+    });
+  </script>
+</body>
+</html>

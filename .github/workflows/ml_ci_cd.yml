@@ -1,0 +1,43 @@
+name: Modelops deploy
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  repository_dispatch:
+    types: [ml_ci_cd]
+jobs:
+  ml_ci_cd:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11']
+    steps:
+    - uses: actions/checkout@v5
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: python version
+      run: python --version
+    - name: pip install
+      run: pip install -r requirements.txt
+    - name: download dataset
+      if: ${{ github.event.client_payload.dataseturl != null }}
+      run: wget -O data/spotify-tracks.csv "${{ github.event.client_payload.dataseturl }}"
+    - name: cat dataset
+      run: head -n 25 data/spotify-tracks.csv && wc -l data/spotify-tracks.csv
+    - name: train model
+      run: python model/train.py
+    - name: docker build
+      run: docker build -t ${{ secrets.DOCKER_USER }}/${{ secrets.MODEL_NAME }}:${{ github.event.client_payload.sha || github.sha }} .
+    - name: show images
+      run: docker images
+    - name: docker login
+      env:
+        DOCKER_USER: ${{ secrets.DOCKER_USER }}
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      run: |
+        docker login -u $DOCKER_USER -p $DOCKER_PASSWORD
+    - name: docker Push
+      run: docker push ${{ secrets.DOCKER_USER }}/${{ secrets.MODEL_NAME }}:${{ github.event.client_payload.sha || github.sha }}

@@ -1,0 +1,15 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY ./requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir --upgrade -r ./requirements.txt
+
+COPY ./app.py .
+COPY ./index.html .
+COPY ./model ./model
+
+ENV PORT=80
+EXPOSE 80
+
+CMD ["sh", "-c", "uvicorn app:app --host 0.0.0.0 --port ${PORT:-80}"]
