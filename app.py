@@ -1,4 +1,5 @@
 import io
+import os
 import pathlib
 import threading
 from datetime import datetime, timezone
@@ -165,3 +166,41 @@ def train(background_tasks: BackgroundTasks, dataset: str = "100"):
 @app.get("/train/status")
 def train_status():
     return train_state
+
+
+GITHUB_REPO = os.getenv("GITHUB_REPO", "maurihm/spotify-randomforest")
+
+
+@app.post("/deploy")
+def deploy(dataset: str = "100"):
+    """Dispara el workflow de GitHub Actions (repository_dispatch ml_ci_cd).
+
+    El workflow descarga el CSV, entrena, construye la imagen Docker y la sube
+    a Docker Hub con el tag i-love-adsoftsito-<dataset>.
+    """
+    if dataset not in DATASET_URLS:
+        raise HTTPException(status_code=400, detail="dataset debe ser 25, 50 o 100")
+    token = os.getenv("GITHUB_TOKEN")
+    if not token:
+        raise HTTPException(status_code=503, detail="Falta la variable GITHUB_TOKEN en el servidor")
+
+    tag = f"i-love-adsoftsito-{dataset}"
+    resp = requests.post(
+        f"https://api.github.com/repos/{GITHUB_REPO}/dispatches",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github.v3+json",
+        },
+        json={
+            "event_type": "ml_ci_cd",
+            "client_payload": {"dataseturl": DATASET_URLS[dataset], "sha": tag},
+        },
+        timeout=30,
+    )
+    if resp.status_code != 204:
+        raise HTTPException(status_code=502, detail=f"GitHub respondio {resp.status_code}: {resp.text[:200]}")
+    return {
+        "status": "dispatched",
+        "tag": tag,
+        "actions_url": f"https://github.com/{GITHUB_REPO}/actions",
+    }
